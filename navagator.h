@@ -16,16 +16,17 @@ struct Waypoint {
 class Navagator {
 public:
 	Navagator(Waypoint*, int);
-	int getBearing();	// Returns angle to next waypoint (between 180 port and -180 starboard) 
+	int getCourse();	// Returns course to next waypoint (compass bearings 0-360 with 0 true North)
 	void update();		// Updates navagator (Call this frequently in the main loop)
 
 private:
 	Waypoint* waypoints;	// Array of waypoints to pass through
 	int pointCount, next;	// Number of waypoints, index of next waypoint
-	int bearing;			// Last calculated bearing to waypoint
+	int course;				// Last calculated course to waypoint
 
 	bool checkWaypoint();
 	void updateWaypoints();
+	void startGPS();
 };
 #endif
 

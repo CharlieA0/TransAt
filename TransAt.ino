@@ -1,15 +1,11 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
 #include "navagator.h"
-#include "navigation.h"
 #include "motors.h"
 
 #define DEBUG 1
 
 #define LeftMotorPin 7
 #define RightMotorPin 6
-
-#define GpsSerial Serial3
-Adafruit_GPS GPS = *new Adafruit_GPS(&GpsSerial);	// Global GPS
 
 void setup()
 {
@@ -22,7 +18,6 @@ void setup()
 	Motor leftMotor = Motor(LeftMotorPin);
 	Motor rightMotor = Motor(RightMotorPin);
 	
-	startGPS(&GPS);
 }
 
 void loop()

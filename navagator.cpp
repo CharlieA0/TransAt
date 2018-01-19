@@ -1,8 +1,12 @@
 // 
 // Library for navagator guiding the TransAt vehicle
 // 
+// Note:	The navagator uses 0-360 compass bearings with 0 equivalent to true North and assumes 1 degree of precision 
+//			All distances are measured in km
+//			The course is the ideal angle between the vehicle and a waypoint
 
 #include "navagator.h"
+#include <Adafruit_GPS.h>
 #include <math.h>
 
 #define EARTH_RADIUS 6371 // in km
@@ -14,26 +18,44 @@ Adafruit_GPS GPS(&GPSSerial);
 Navagator::Navagator(Waypoint* w, int count) {
 	waypoints = w; pointCount = count;
 	next = 0;		// start with first waypoint
-	bearing = 0;	// default to straight forward
+	course = 90;	// Notice that initial course is due East
 
 	startGPS();
 }
 
-// Returns bearing to next waypoint in degrees
+// Returns course between 0-360 degrees, where 0 is true North
 int Navagator::getCourse() {
-	if (!GPS.fix)	// Without a fix, continue along last bearing.
-		return bearing;
+	if (!GPS.fix)	// Without a fix, continue along last course.
+		return course;
 
-	// Get coordinates in radians
-	double waypointLon = degreesToRadians((waypoints + next)->lon);
-	double waypointLat = degreesToRadians((waypoints + next)->lat);
-	double currentLon = degreesToRadians(GPS.longitude);
-	double currentLat = degreesToRadians(GPS.latitude);
+	// Get coordinates (In decimal degrees)
+	double waypointLon = (waypoints + next)->lon;
+	double waypointLat =(waypoints + next)->lat;
+	double currentLon = GPS.longitude;
+	double currentLat = GPS.latitude;
 
-	// Update bearing
-	bearing = radiansToDegrees(calculateCourse(currentLat, currentLon, waypointLat, waypointLon));
+	// Update course
+	course = calculateCourse(currentLat, currentLon, waypointLat, waypointLon);
 
-	return bearing;
+	return course;
+}
+
+// Passed coordinates in decimal degrees
+// Returns course in integer compass bearings
+double calculateCourse(double lat1, double lon1, double lat2, double lon2) {
+	// From https://www.movable-type.co.uk/scripts/latlong.html
+	
+	// Convert to radians
+	lat1 = degreesToRadians(lat1);
+	lon1 = degreesToRadians(lon1);
+	lat2 = degreesToRadians(lat2);
+	lon2 = degreesToRadians(lon2);
+
+	double y = sin(lon2 - lon1) * cos(lat2);
+	double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon2 - lon1);
+	double course = ((int)radiansToDegrees(atan2(y, x)) + 360) % 360;				// We convert the -pi to pi result of atan2 to 360 degree compass bearings
+	
+	return course;
 }
 
 // Call this from the main loop to keep navigation up to date
@@ -43,45 +65,44 @@ void Navagator::update() {
 }
 
 void Navagator::updateWaypoints() {
-	if (checkWaypoint()) {	// If we've reached a waypoint
-		if (next + 1 < pointCount)
-			next++;	// Move to the next waypoint
-		else {
-			// Keep seeking the last waypoint
-		}
+	if (checkWaypoint()) {			// If we've reached a waypoint
+
+		if (next + 1 < pointCount)	// If there are more waypoints,
+			next++;					// Move to the next waypoint (Else, keep seeking the last waypoint)
 	}
 }
 
 // Returns true if we've reached the next waypoint, else false
 bool Navagator::checkWaypoint() {
-	if (!GPS.fix)	// Without a fix, assume we haven't reached a waypoint
+	if (!GPS.fix)		// Without a fix, assume we haven't reached a waypoint
 		return false;
 
-	// Get coordinates in radians
-	double waypointLon = degreesToRadians((waypoints + next)->lon);
-	double waypointLat = degreesToRadians((waypoints + next)->lat);
-	double currentLon = degreesToRadians(GPS.longitude);
-	double currentLat = degreesToRadians(GPS.latitude);
+	// Get coordinates
+	double waypointLon = (waypoints + next)->lon;
+	double waypointLat = (waypoints + next)->lat;
+	double currentLon = GPS.longitude;
+	double currentLat = GPS.latitude;
 
-	//Find distance between  them
+	// Return if distance between them is less than the waypoint 
 	return calculateCoordinateDistance(currentLat, currentLon, waypointLat, waypointLon) < WAYPOINT_RADIUS;
 }
 
 
-// Takes lattitudes and longitudes in radians
-// Returns bearing in radians
-double calculateCourse(double lat1, double lon1, double lat2, double lon2) {
-	// From https://www.movable-type.co.uk/scripts/latlong.html
-	double y = sin(lon2 - lon1) * cos(lat2);
-	double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon2 - lon1);
-	return atan2(y, x);
-}
 
-// Takes coordinates in radians
+
+// Takes coordinates in decimal degrees
 // Returns distance between in km
 double calculateCoordinateDistance(double lat1, double lon1, double lat2, double lon2) {
 	// Halversine Formula https://www.movable-type.co.uk/scripts/latlong.html
-	double a = pow(sin((lat2 - lat1) / 2), 2) + cos(lon1) * cos(lon2) * pow(sin((lon2 - lon1) / 2), 2);	// For right triangle with sides a, b, and c
+
+	// Convert to radians
+	lat1 = degreesToRadians(lat1);
+	lon1 = degreesToRadians(lon1);
+	lat2 = degreesToRadians(lat2);
+	lon2 = degreesToRadians(lon2);
+
+	// Find distance on unit sphere
+	double a = pow(sin((lat2 - lat1) / 2), 2) + cos(lat1) * cos(lat2) * pow(sin((lon2 - lon1) / 2), 2);	// For right triangle with sides a, b, and c
 	double c = 2 * atan2(sqrt(a), sqrt(1 - a));
 
 	return EARTH_RADIUS * c;
@@ -96,7 +117,7 @@ double radiansToDegrees(double radians) {
 }
 
 // Configures and begins reading GPS
-void startGPS() {
+void Navagator::startGPS() {
 
 	GPS.begin(9600);
 
@@ -109,9 +130,9 @@ void startGPS() {
 	TIMSK0 |= _BV(OCIE0A);	// enable compare A interrupts 
 							// Note: TIMSK0 is a macro for the 'Timer Interrupt Mask Register' and OCIE0A is the bit mask specifing 'Timer/Counter Output Compare Match A Interrupt'
 
-	// Consider waiting here for the GPS to get a fix
-	// while(!GPS.fix) 
-	//	 update();
+	// Wait for GPS to get fix
+	while(!GPS.fix) 
+		update();
 }
 
 // Interrupt is called once a millisecond, looks for any new GPS data, and stores it
