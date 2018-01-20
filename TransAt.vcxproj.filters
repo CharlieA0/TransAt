@@ -24,7 +24,10 @@
     <ClInclude Include="motors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="navigation.h">
+    <ClInclude Include="main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="navigator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -32,7 +35,7 @@
     <ClCompile Include="motors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="navigation.cpp">
+    <ClCompile Include="navigator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

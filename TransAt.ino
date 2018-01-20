@@ -1,55 +1,31 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-#include "navagator.h"
 #include "motors.h"
+#include "navigator.h"
 
-#define DEBUG 1
+Waypoint w = { 43.36, -75.1 };	// These objects must be accessible in both setup() and loop(), but we can't use the new keyword
+Navigator* nav;					// That means we have to do a lot of the heavy lifting here
 
-#define LeftMotorPin 7
-#define RightMotorPin 6
+     
+uint32_t timer = millis();
 
-void setup()
-{
-
-	#if DEBUG
-		Serial.begin(115200);
-		Serial.println("MIT TransAt Vehicle Debugging:");
-	#endif // DEBUG
-
-	Motor leftMotor = Motor(LeftMotorPin);
-	Motor rightMotor = Motor(RightMotorPin);
-	
+void setup() {
+	Serial.begin(115200);
+	Serial.println("MIT TransAt Vehicle Debugging");
+	nav = new Navigator(&w, 1);	// And yet, it only works if I use the new keyword... ask some who knows more C++ about this.
 }
 
-void loop()
-{
-	updateGPS();
-	#if DEBUG
-	Serial.print("\nTime: ");
-	Serial.print(GPS.hour, DEC); Serial.print(':');
-	Serial.print(GPS.minute, DEC); Serial.print(':');
-	Serial.print(GPS.seconds, DEC); Serial.print('.');
-	Serial.println(GPS.milliseconds);
-	Serial.print("Date: ");
-	Serial.print(GPS.day, DEC); Serial.print('/');
-	Serial.print(GPS.month, DEC); Serial.print("/20");
-	Serial.println(GPS.year, DEC);
-	Serial.print("Fix: "); Serial.print((int)GPS.fix);
-	Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
-	
-	if (GPS.fix) {
-		Serial.print("Location: ");
-		Serial.print(GPS.latitude, 4); Serial.print(GPS.lat);
-		Serial.print(", ");
-		Serial.print(GPS.longitude, 4); Serial.println(GPS.lon);
-		Serial.print("Location (in degrees, works with Google Maps): ");
-		Serial.print(GPS.latitudeDegrees, 4);
-		Serial.print(", ");
-		Serial.println(GPS.longitudeDegrees, 4);
+void loop() 
+{ 
+	nav->update();
 
-		Serial.print("Speed (knots): "); Serial.println(GPS.speed);
-		Serial.print("Angle: "); Serial.println(GPS.angle);
-		Serial.print("Altitude: "); Serial.println(GPS.altitude);
-		Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
+	if (timer > millis()) timer = millis();
+   
+	if (millis() - timer > 2000) {
+
+		timer = millis(); // reset the timer
+		nav->diagnostic();
+
+		int course = nav->getCourse();
+		Serial.println("\nCourse: "); Serial.println(course);
 	}
-	#endif
+
 }
